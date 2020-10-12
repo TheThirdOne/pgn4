@@ -19,10 +19,14 @@ pub struct BasicMove {
 pub enum Move {
     Checkmate,
     Timeout,
+    TimeoutMate,
     Stalemate,
     Resign,
+    ResignMate,
     KingCastle(usize),
     QueenCastle(usize),
+    ResignMove(BasicMove),
+    TimeoutMove(BasicMove),
     Normal(BasicMove),
 }
 /*

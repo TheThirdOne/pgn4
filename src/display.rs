@@ -54,6 +54,8 @@ impl fmt::Display for Move {
                 Stalemate => "S",
                 Timeout => "T",
                 Resign => "R",
+                TimeoutMate => "T#",
+                ResignMate => "R#",
                 KingCastle(s) | QueenCastle(s) => {
                     write!(f, "O-O")?;
                     if let QueenCastle(_) = self {
@@ -64,6 +66,8 @@ impl fmt::Display for Move {
                     }
                     return Ok(());
                 }
+                ResignMove(bm) => return write!(f, "{}R", bm),
+                TimeoutMove(bm) => return write!(f, "{}T", bm),
                 Normal(bm) => return write!(f, "{}", bm),
             }
         )

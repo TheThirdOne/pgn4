@@ -107,6 +107,8 @@ impl FromStr for Move {
             "S" => Stalemate,
             "T" => Timeout,
             "R" => Resign,
+            "T#" => TimeoutMate,
+            "R#" => ResignMate,
             s if s.starts_with("O-O") => {
                 let mateless = s.trim_end_matches('#');
                 let mates = s.len() - mateless.len();
@@ -115,6 +117,14 @@ impl FromStr for Move {
                     "O-O" => KingCastle(mates),
                     _ => return Err(BadMove),
                 }
+            }
+            s if s.ends_with('R') && !s.ends_with("=R") => {
+                let trimmed = s.strip_suffix('R').unwrap();
+                ResignMove(trimmed.parse::<BasicMove>().map_err(|_| BadMove)?)
+            }
+            s if s.ends_with('T') && !s.ends_with("=T") => {
+                let trimmed = s.strip_suffix('T').unwrap();
+                TimeoutMove(trimmed.parse::<BasicMove>().map_err(|_| BadMove)?)
             }
             _ => Normal(string.parse::<BasicMove>().map_err(|_| BadMove)?),
         })

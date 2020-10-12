@@ -10,9 +10,8 @@ fn simple_full_parse() {
         assert_eq!(example, string, "Pgn not inverse");
     }
 }
-#[test]
-fn long_boy() {
-    let long = "1. h2-h3 .. b8-c8 .. g13-g12 .. m7-l7
+
+const LONG_TEAM: &str = "1. h2-h3 .. b8-c8 .. g13-g12 .. m7-l7
 2. Qg1xQn8+ .. Qa7xQh14+ .. Kg14xQh14 .. Kn7xQn8
 3. Bi1xBa9 .. Ka8xBa9 .. Bf14xBn6 .. m4-l4
 4. e2-e3 .. Na10-c9 .. Bn6-j10 .. Nn5-l6
@@ -45,9 +44,55 @@ fn long_boy() {
 31. Rd6-b6+ .. Kb8-a7 .. Rc8-c11 .. k7-j7
 32. O-O#";
 
-    let pgn: PGN4 = long.parse().unwrap();
+const LONG_FFA: &str = "1. j2-j3 .. b7-d7 .. e13-e12 .. m8-k8
+2. Bi1-j2 .. b11-c11 .. j13-j12 .. k8-j8
+3. e2-e3 .. b4-c4 .. Ne14-f12 .. j8-i8
+4. Bf1-e2 .. d7-e7 .. g13-g11 .. i8-h8
+5. h2-h3 .. e7-f7 .. g11-g10 .. m9-l9
+6. Nj1-h2 .. f7-g7 .. Nj14-i12 .. h8-g8=Q
+7. O-O .. g7-h7=Q .. Bf14-e13 .. Qg8-l8
+8. d2-d3 .. c4xd3 .. Ni12-g11 .. m4-k4
+9. Be2xd3 .. Qh7-c7 .. Ng11-h9 .. Ql8-k8
+10. j3xk4 .. Na10-c9 .. O-O .. Qk8xk4
+11. g2-g4 .. Na5-c6 .. Rf14-g14 .. Nn5-l4
+12. Bj2xNl4 .. b8-c8 .. Bi14-j13 .. Qk4xBl4
+13. Ne1-f3 .. Nc6-d8 .. Nh9-i11 .. Qn8-j8+
+14. Kj1-k1 .. Qc7-g7 .. h13-h11 .. Qj8-j2+#
+15. Ra4-f4 .. h11-h10 .. m11-k11
+16. Ba9-c7 .. j12-j11 .. Qj2xj11
+17. b6-c6 .. Be13-f14 .. Qj11xBj13
+18. Qg7-f7 .. Ni11xQj13 .. m10-k10
+19. Nd8-e10 .. Nf12xNe10 .. Bn9xNj13
+20. Qf7xf13+ .. Ke14-d14 .. k11-j11
+21. Nc9xNe10 .. Rk14-j14 .. Bj13-i12
+22. Bc7-b8 .. Qh14-g13 .. m7-l7
+23. Bb8-f12+ .. Qg13xBf12 .. j11-i11
+24. Qa7xQf12+ .. R# .. Bi12xg10
+25. Qf12-f7 .. i11-h11
+26. Rf4-f6 .. Ql4xg4
+27. Rf6xm6 .. Kn7xRm6
+28. Qf7-f6+ .. Bg10-k6
+29. Qf13-f7 .. Rn4-l4
+30. O-O .. Qg4-g10
+31. c8-d8 .. h11-g11=Q
+32. Ne10xQg11 .. Rn11xNg11
+33. Qf7-j3+ .. m5-l5
+34. T";
+
+#[test]
+fn just_moves() {
+    let pgn: PGN4 = LONG_TEAM.parse().unwrap();
     let string = pgn.to_string();
-    assert_eq!(long, string, "Pgn not inverse");
+    assert_eq!(
+        LONG_TEAM, string,
+        "Long team game did not succeed the roundtrip"
+    );
+    let pgn2: PGN4 = LONG_FFA.parse().unwrap();
+    let string2 = pgn2.to_string();
+    assert_eq!(
+        LONG_FFA, string2,
+        "Long ffa game did not succeed the roundtrip"
+    );
 }
 
 #[test]
