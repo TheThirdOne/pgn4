@@ -30,6 +30,9 @@ impl fmt::Display for BasicMove {
             }
         }
         write!(f, "{}", self.to)?;
+        if let Some(p) = self.promotion {
+            write!(f, "={}", p)?;
+        }
         for _ in 0..self.checks {
             write!(f, "+")?;
         }
@@ -51,6 +54,16 @@ impl fmt::Display for Move {
                 Stalemate => "S",
                 Timeout => "T",
                 Resign => "R",
+                KingCastle(s) | QueenCastle(s) => {
+                    write!(f, "O-O")?;
+                    if let QueenCastle(_) = self {
+                        write!(f, "-O")?;
+                    }
+                    for _ in 0..*s {
+                        write!(f, "#")?;
+                    }
+                    return Ok(());
+                }
                 Normal(bm) => return write!(f, "{}", bm),
             }
         )
@@ -110,7 +123,7 @@ impl fmt::Display for PGN4 {
             for bracket in &self.bracketed {
                 write!(f, "[{} \"{}\"]\n", bracket.0, bracket.1)?;
             }
-            write!(f, "\n")?;
+            write!(f, "\n\n\n")?;
         }
         write!(f, "{}", self.turns[0])?;
         for turn in &self.turns[1..] {

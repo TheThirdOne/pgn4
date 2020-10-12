@@ -54,7 +54,7 @@ fn full_turn_diff() {
             alternatives: Vec::new(),
         })
         .collect();
-    let mut alt_moves: Vec<QuarterTurn> = vec!["Nj1-i3", "Na5-c6", "Ne14-f12", "m8-l8"]
+    let alt_moves: Vec<QuarterTurn> = vec!["Nj1-i3", "Na5-c6", "Ne14-f12", "m8-l8"]
         .into_iter()
         .map(|s| QuarterTurn {
             main: Move::Normal(s.parse().unwrap()),

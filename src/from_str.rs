@@ -46,14 +46,29 @@ impl FromStr for BasicMove {
         let mates = pieceless.len() - mateless.len();
         let checks = mateless.len() - checkless.len();
 
-        let loc = if let Some(dash) = checkless.find('-') {
+        let (two_pos, promotion) = if let Some(equals) = checkless.find('=') {
+            let (left_over, promote) = checkless.split_at(equals);
+            let mut iter = promote.chars();
+            if iter.next() != Some('=') {
+                return Err(BadBasicMove);
+            }
+            let p = iter.next().ok_or(BadBasicMove)?;
+            if iter.next().is_some() {
+                return Err(BadBasicMove);
+            }
+            (left_over, Some(p))
+        } else {
+            (checkless, None)
+        };
+
+        let loc = if let Some(dash) = two_pos.find('-') {
             dash
-        } else if let Some(x) = checkless.find('x') {
+        } else if let Some(x) = two_pos.find('x') {
             x
         } else {
             return Err(BadBasicMove);
         };
-        let (left, tmp) = checkless.split_at(loc);
+        let (left, tmp) = two_pos.split_at(loc);
         let (mid, mut right) = tmp.split_at(1); // x and - are both ascii and therefore 1 byte
         let from = left.parse::<Position>().map_err(|_| BadBasicMove)?;
         let captured = if mid == "x" {
@@ -74,6 +89,7 @@ impl FromStr for BasicMove {
             from,
             captured,
             to,
+            promotion,
             checks,
             mates,
         })
@@ -91,6 +107,15 @@ impl FromStr for Move {
             "S" => Stalemate,
             "T" => Timeout,
             "R" => Resign,
+            s if s.starts_with("O-O") => {
+                let mateless = s.trim_end_matches('#');
+                let mates = s.len() - mateless.len();
+                match mateless {
+                    "O-O-O" => QueenCastle(mates),
+                    "O-O" => KingCastle(mates),
+                    _ => return Err(BadMove),
+                }
+            }
             _ => Normal(string.parse::<BasicMove>().map_err(|_| BadMove)?),
         })
     }

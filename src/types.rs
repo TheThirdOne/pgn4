@@ -10,6 +10,7 @@ pub struct BasicMove {
     pub from: Position,
     pub captured: Option<char>,
     pub to: Position,
+    pub promotion: Option<char>,
     pub checks: usize,
     pub mates: usize,
 }
@@ -20,6 +21,8 @@ pub enum Move {
     Timeout,
     Stalemate,
     Resign,
+    KingCastle(usize),
+    QueenCastle(usize),
     Normal(BasicMove),
 }
 /*
