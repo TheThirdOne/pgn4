@@ -1,16 +1,6 @@
 use pgn4::*;
 
 #[test]
-fn basic_moves() {
-    let moves = vec!["Ka4-b6+#", "Na4-n6#", "i2-i4+", "l4xk3", "l4xQk3"];
-    for bm in moves {
-        let parsed: BasicMove = bm.parse().unwrap();
-        let string = parsed.to_string();
-        assert_eq!(bm, string, "Not inversed (BasicMove)");
-    }
-}
-
-#[test]
 fn opening_diff() {
     let expected = "1. h2-h3 .. b7-c7 .. g13-g12 ( .. h13-h12 )  .. Nn10-l9 { Test }";
     let mut moves: Vec<QuarterTurn> = vec!["h2-h3", "b7-c7", "g13-g12", "Nn10-l9"]

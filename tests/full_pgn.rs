@@ -1,6 +1,6 @@
 use pgn4::*;
 #[test]
-fn simple_full_parse() {
+fn simple_move_parse() {
     let examples =
         vec!["1. h2-h3 .. b7-c7 .. g13-g12 ( .. h13-h12 )  .. Nn10-l9 { Test }",
      "1. h2-h3\n(1.. Nj1-i3 .. Na5-c6 .. Ne14-f12 .. m8-l8 )  .. b7-c7 .. g13-g12 .. Nn10-l9"];
