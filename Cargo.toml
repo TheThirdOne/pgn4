@@ -5,7 +5,7 @@ authors = ["Benjamin Landers <benjaminrlanders@gmail.com>"]
 edition = "2018"
 description = "A parser and writer for the pgn4 file format used by Chess.com for 4 player chess games"
 license = "MIT"
-repository="https://github.com/TheThirdOne/fen4/"
+repository="https://github.com/TheThirdOne/pgn4/"
 
 [dependencies]
 thiserror = "1.0"
