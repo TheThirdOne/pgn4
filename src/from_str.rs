@@ -3,38 +3,57 @@ use std::str::FromStr;
 
 use crate::types::*;
 
-#[derive(PartialEq, Clone, Debug)]
-pub struct BadPosition;
+use thiserror::Error;
+
+#[derive(Error, PartialEq, Clone, Debug)]
+pub enum PositionError {
+    #[error("'{0}' is not a valid column. Valid columns are 'a'-'n'")]
+    ColumnInvalid(char),
+    #[error("'{0}' is not a valid row. Valid rows are 1-14")]
+    RowInvalid(usize),
+    #[error("Position is malformed. Positions should take the form \"a4\"")]
+    Other,
+}
+
 impl FromStr for Position {
-    type Err = BadPosition;
+    type Err = PositionError;
     fn from_str(small: &str) -> Result<Self, Self::Err> {
         let mut iter = small.chars();
-        let column_letter = iter.next().ok_or(BadPosition)?;
+        let column_letter = iter.next().ok_or(PositionError::Other)?;
         if column_letter > 'n' || column_letter < 'a' {
-            return Err(BadPosition);
+            return Err(PositionError::ColumnInvalid(column_letter));
         }
 
         let a: u32 = 'a'.into();
         let mut column_num: u32 = column_letter.into();
         column_num -= a;
-        let col: usize = column_num.try_into().map_err(|_| BadPosition)?;
+        let col: usize = column_num.try_into().unwrap(); // If earlier should guarentee this succeeds
 
         let number_str = iter.as_str();
-        let row = number_str.parse::<usize>().map_err(|_| BadPosition)?;
-        if row == 0 {
-            return Err(BadPosition);
+        let row = number_str
+            .parse::<usize>()
+            .map_err(|_| PositionError::Other)?;
+        if row == 0 || row > 14 {
+            return Err(PositionError::RowInvalid(row));
         }
         Ok(Position { col, row: row - 1 })
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
-pub struct BadBasicMove;
+#[derive(Error, PartialEq, Clone, Debug)]
+pub enum MoveError {
+    #[error("Basic move is malformed.")]
+    Other,
+    #[error("A move starts with O-O, but is not a correct type of move.")]
+    Castle,
+    #[error("Unable to parse basic move because {0}")]
+    PositionInvalid(#[from] PositionError),
+}
 impl FromStr for BasicMove {
-    type Err = BadBasicMove;
+    type Err = MoveError;
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         let mut iter = string.chars();
-        let start = iter.next().ok_or(BadBasicMove)?;
+        let start = iter.next().ok_or(MoveError::Other)?;
         let (piece, pieceless) = if start.is_ascii_lowercase() {
             ('P', string)
         } else {
@@ -50,11 +69,11 @@ impl FromStr for BasicMove {
             let (left_over, promote) = checkless.split_at(equals);
             let mut iter = promote.chars();
             if iter.next() != Some('=') {
-                return Err(BadBasicMove);
+                return Err(MoveError::Other);
             }
-            let p = iter.next().ok_or(BadBasicMove)?;
+            let p = iter.next().ok_or(MoveError::Other)?;
             if iter.next().is_some() {
-                return Err(BadBasicMove);
+                return Err(MoveError::Other);
             }
             (left_over, Some(p))
         } else {
@@ -66,14 +85,14 @@ impl FromStr for BasicMove {
         } else if let Some(x) = two_pos.find('x') {
             x
         } else {
-            return Err(BadBasicMove);
+            return Err(MoveError::Other);
         };
         let (left, tmp) = two_pos.split_at(loc);
         let (mid, mut right) = tmp.split_at(1); // x and - are both ascii and therefore 1 byte
-        let from = left.parse::<Position>().map_err(|_| BadBasicMove)?;
+        let from = left.parse::<Position>()?;
         let captured = if mid == "x" {
             let mut iter = right.chars();
-            let start = iter.next().ok_or(BadBasicMove)?;
+            let start = iter.next().ok_or(MoveError::Other)?;
             Some(if start.is_ascii_lowercase() {
                 'P'
             } else {
@@ -83,7 +102,7 @@ impl FromStr for BasicMove {
         } else {
             None
         };
-        let to = right.parse::<Position>().map_err(|_| BadBasicMove)?;
+        let to = right.parse::<Position>()?;
         Ok(BasicMove {
             piece,
             from,
@@ -96,10 +115,8 @@ impl FromStr for BasicMove {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
-pub struct BadMove;
 impl FromStr for Move {
-    type Err = BadMove;
+    type Err = MoveError;
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         use Move::*;
         Ok(match string {
@@ -115,28 +132,33 @@ impl FromStr for Move {
                 match mateless {
                     "O-O-O" => QueenCastle(mates),
                     "O-O" => KingCastle(mates),
-                    _ => return Err(BadMove),
+                    _ => return Err(MoveError::Castle),
                 }
             }
             s if s.ends_with('R') && !s.ends_with("=R") => {
                 let trimmed = s.strip_suffix('R').unwrap();
-                ResignMove(trimmed.parse::<BasicMove>().map_err(|_| BadMove)?)
+                ResignMove(trimmed.parse::<BasicMove>()?)
             }
             s if s.ends_with('T') && !s.ends_with("=T") => {
                 let trimmed = s.strip_suffix('T').unwrap();
-                TimeoutMove(trimmed.parse::<BasicMove>().map_err(|_| BadMove)?)
+                TimeoutMove(trimmed.parse::<BasicMove>()?)
             }
-            _ => Normal(string.parse::<BasicMove>().map_err(|_| BadMove)?),
+            _ => Normal(string.parse::<BasicMove>()?),
         })
     }
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub struct BadQuarterTurn;
-fn parse_quarter(string: &str) -> Result<(QuarterTurn, &str), BadQuarterTurn> {
-    /// The end of the main Move is bounded by the opening brace of a description
-    /// or alternative, the first '.' of a "..", a beginning of a new turn (number),
-    ///  ')' that closes the currentTurn, or EOF
+enum IntermediateError {
+    Other(usize),
+    MoveErr(MoveError, String, usize),
+    Description(usize),
+}
+
+fn parse_quarter(string: &str) -> Result<(QuarterTurn, &str), IntermediateError> {
+    /// Generally the move is bounded by whitespace, but supporting pgns that don't
+    /// have all the neccessary whitespace is good. Notably, whitespace before a new
+    ///  line number is critical.
     fn next_move(c: char) -> bool {
         c.is_whitespace()
             || match c {
@@ -144,25 +166,29 @@ fn parse_quarter(string: &str) -> Result<(QuarterTurn, &str), BadQuarterTurn> {
                 _ => false,
             }
     }
+    use IntermediateError::*;
     let trimmed = string.trim_start();
     if trimmed == "" {
-        return Err(BadQuarterTurn);
+        return Err(Other(trimmed.len()));
     }
     let split = trimmed.find(next_move).unwrap_or(string.len() - 1);
     let (main_str, mut rest) = trimmed.split_at(split);
-    let main = main_str.trim().parse().map_err(|_| BadQuarterTurn)?;
+    let main = main_str
+        .trim()
+        .parse()
+        .map_err(|m| MoveErr(m, main_str.to_owned(), rest.len()))?;
     let mut description = None;
     let mut alternatives = Vec::new();
     rest = rest.trim_start();
 
     if let Some(c) = rest.chars().next() {
         if c == '{' {
-            let desc_end = rest.find('}').ok_or(BadQuarterTurn)?;
+            let desc_end = rest.find('}').ok_or(Description(rest.len()))?;
             let (mut desc_str, rest_tmp) = rest.split_at(desc_end + 1);
-            rest = rest_tmp;
-            desc_str = desc_str.strip_prefix("{ ").ok_or(BadQuarterTurn)?;
-            desc_str = desc_str.strip_suffix(" }").ok_or(BadQuarterTurn)?;
+            desc_str = desc_str.strip_prefix("{ ").ok_or(Description(rest.len()))?;
+            desc_str = desc_str.strip_suffix(" }").ok_or(Description(rest.len()))?;
             description = Some(desc_str.to_owned());
+            rest = rest_tmp;
         }
     } else {
         return Ok((
@@ -174,20 +200,17 @@ fn parse_quarter(string: &str) -> Result<(QuarterTurn, &str), BadQuarterTurn> {
             rest,
         ));
     };
-    while let Some(c) = rest.chars().next() {
-        if c == '(' {
-            let mut turns = Vec::new();
-            rest = rest.strip_prefix('(').ok_or(BadQuarterTurn)?;
-            while rest.chars().next() != Some(')') {
-                let (turn, rest_tmp) = parse_turn(rest).map_err(|_| BadQuarterTurn)?;
-                rest = rest_tmp;
-                turns.push(turn);
-            }
-            rest = rest.strip_prefix(')').ok_or(BadQuarterTurn)?.trim_start();
-            alternatives.push(turns);
-        } else {
-            break;
+
+    while let Some(rest_tmp) = rest.strip_prefix('(') {
+        rest = rest_tmp;
+        let mut turns = Vec::new();
+        while rest.chars().next() != Some(')') {
+            let (turn, rest_tmp) = parse_turn(rest)?;
+            rest = rest_tmp;
+            turns.push(turn);
         }
+        rest = rest.strip_prefix(')').unwrap().trim_start();
+        alternatives.push(turns);
     }
     Ok((
         QuarterTurn {
@@ -199,16 +222,15 @@ fn parse_quarter(string: &str) -> Result<(QuarterTurn, &str), BadQuarterTurn> {
     ))
 }
 
-#[derive(PartialEq, Clone, Debug)]
-pub struct BadTurn;
-fn parse_turn(string: &str) -> Result<(Turn, &str), BadTurn> {
+fn parse_turn(string: &str) -> Result<(Turn, &str), IntermediateError> {
+    use IntermediateError::*;
     let trimmed = string.trim_start();
-    let dot_loc = trimmed.find('.').ok_or(BadTurn)?;
+    let dot_loc = trimmed.find('.').ok_or(Other(trimmed.len()))?;
     let (number_str, dots) = trimmed.split_at(dot_loc);
     let number = if number_str == "" {
         0
     } else {
-        number_str.parse().map_err(|_| BadTurn)?
+        number_str.parse().map_err(|_| Other(trimmed.len()))?
     };
     let dot = dots.strip_prefix('.').unwrap();
     let (mut rest, double_dot) = if let Some(dotted) = dot.strip_prefix('.') {
@@ -217,14 +239,15 @@ fn parse_turn(string: &str) -> Result<(Turn, &str), BadTurn> {
         (dot, false)
     };
     let mut turns = Vec::new();
-    let (qturn, rest_tmp) = parse_quarter(rest).map_err(|_| BadTurn)?;
+    let for_error = rest.len();
+    let (qturn, rest_tmp) = parse_quarter(rest)?;
     rest = rest_tmp.trim_start();
     turns.push(qturn);
     while let Some(rest_tmp) = rest.strip_prefix("..") {
         if turns.len() >= 4 {
-            return Err(BadTurn);
+            return Err(Other(for_error));
         }
-        let (qturn, rest_tmp) = parse_quarter(rest_tmp).map_err(|_| BadTurn)?;
+        let (qturn, rest_tmp) = parse_quarter(rest_tmp)?;
         rest = rest_tmp.trim_start();
         turns.push(qturn);
     }
@@ -238,30 +261,85 @@ fn parse_turn(string: &str) -> Result<(Turn, &str), BadTurn> {
     ))
 }
 
+#[derive(Error, PartialEq, Clone, Debug)]
+pub enum PGN4Error {
+    #[error("Some error occured at {0}")]
+    Other(ErrorLocation),
+    #[error("Tag starting at {0} is malformed")]
+    BadTagged(ErrorLocation),
+    #[error("Move \"{1}\" at {2} failed to parse. {0}")]
+    BadMove(MoveError, String, ErrorLocation),
+    #[error("Description starting at {0} is malformed")]
+    BadDescription(ErrorLocation),
+}
+
 #[derive(PartialEq, Clone, Debug)]
-pub struct BadPGN4;
+pub struct ErrorLocation {
+    pub line: usize,
+    pub column: usize,
+    pub raw_offset: usize,
+}
+
+impl std::fmt::Display for ErrorLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "line {} column {}", self.line, self.column)
+    }
+}
+
 impl FromStr for PGN4 {
-    type Err = BadPGN4;
+    type Err = PGN4Error;
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         let mut bracketed = Vec::new();
         let mut rest = string;
         while let Some(rest_tmp) = rest.strip_prefix('[') {
             let label_end = rest_tmp.find(|c: char| c.is_whitespace()).unwrap_or(0);
             let (label, middle) = rest_tmp.split_at(label_end);
-            rest = middle.trim_start().strip_prefix('"').ok_or(BadPGN4)?;
+            rest = middle
+                .trim_start()
+                .strip_prefix('"')
+                .ok_or_else(|| make_tagged(rest_tmp, string))?;
 
-            let value_end = rest.find('"').ok_or(BadPGN4)?;
+            let value_end = rest
+                .find('"')
+                .ok_or_else(|| make_tagged(rest_tmp, string))?;
             let (value, end) = rest.split_at(value_end);
-            rest = end.strip_prefix("\"]").ok_or(BadPGN4)?.trim_start();
+            rest = end
+                .strip_prefix("\"]")
+                .ok_or_else(|| make_tagged(rest_tmp, string))?
+                .trim_start();
 
             bracketed.push((label.to_owned(), value.to_owned()));
         }
         let mut turns = Vec::new();
         while rest != "" {
-            let (turn, rest_tmp) = parse_turn(rest).map_err(|_| BadPGN4)?;
+            let (turn, rest_tmp) = parse_turn(rest).map_err(|ie| add_details(ie, string))?;
             rest = rest_tmp;
             turns.push(turn);
         }
         Ok(PGN4 { bracketed, turns })
+    }
+}
+
+fn map_location(bytes_left: usize, base: &str) -> ErrorLocation {
+    let front = base.split_at(base.len() - bytes_left).0;
+    let from_last_newline = front.lines().last().unwrap();
+    let line = front.lines().count();
+    ErrorLocation {
+        line,
+        column: from_last_newline.chars().count(),
+        raw_offset: front.len(),
+    }
+}
+
+fn make_tagged(rest: &str, string: &str) -> PGN4Error {
+    PGN4Error::BadTagged(map_location(rest.len(), string))
+}
+
+fn add_details(ie: IntermediateError, string: &str) -> PGN4Error {
+    use IntermediateError::*;
+    match ie {
+        Other(r) => PGN4Error::Other(map_location(r, string)),
+        MoveErr(m, e, r) => PGN4Error::BadMove(m, e, map_location(r, string)),
+        Description(r) => PGN4Error::BadDescription(map_location(r, string)),
     }
 }
