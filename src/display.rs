@@ -2,17 +2,6 @@ use std::fmt;
 
 use crate::types::*;
 
-impl fmt::Display for Position {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.row >= 14 || self.col >= 14 {
-            eprintln!("BAD POSITION {} {}", self.row, self.col);
-            return Err(fmt::Error);
-        }
-        let column_letter: char = ((self.col as u8) + b'a').into();
-        write!(f, "{}{}", column_letter, self.row + 1)
-    }
-}
-
 impl fmt::Display for BasicMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.piece != 'P' {
@@ -50,12 +39,11 @@ impl fmt::Display for Move {
             f,
             "{}",
             match self {
+                Claim => "C",
                 Checkmate => "#",
                 Stalemate => "S",
                 Timeout => "T",
                 Resign => "R",
-                TimeoutMate => "T#",
-                ResignMate => "R#",
                 KingCastle(s) | QueenCastle(s) => {
                     write!(f, "O-O")?;
                     if let QueenCastle(_) = self {
@@ -66,8 +54,6 @@ impl fmt::Display for Move {
                     }
                     return Ok(());
                 }
-                ResignMove(bm) => return write!(f, "{}R", bm),
-                TimeoutMove(bm) => return write!(f, "{}T", bm),
                 Normal(bm) => return write!(f, "{}", bm),
             }
         )
@@ -95,6 +81,9 @@ impl fmt::Display for Turn {
 impl fmt::Display for QuarterTurn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.main)?;
+        if let Some(modifier) = &self.modifier {
+            write!(f, "{}", modifier)?;
+        }
         if let Some(d) = &self.description {
             write!(f, " {{ {} }}", d)?;
         }
@@ -129,9 +118,11 @@ impl fmt::Display for PGN4 {
             }
             write!(f, "\n\n\n")?;
         }
-        write!(f, "{}", self.turns[0])?;
-        for turn in &self.turns[1..] {
-            write!(f, "\n{}", turn)?;
+        if self.turns.len() != 0 {
+            write!(f, "{}", self.turns[0])?;
+            for turn in &self.turns[1..] {
+                write!(f, "\n{}", turn)?;
+            }
         }
         Ok(())
     }

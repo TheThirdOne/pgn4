@@ -18,7 +18,7 @@ fn check(moves: &[&str]) {
         }
     }
     if failed {
-        panic!("Aat least move failed to parse correctly");
+        panic!("At least move failed to parse correctly");
     }
 }
 
@@ -60,11 +60,5 @@ fn mates() {
 #[test]
 fn basic_extra() {
     let moves = vec!["S", "T", "R"];
-    check(&moves);
-}
-
-#[test]
-fn complex_extra() {
-    let moves = vec!["Kf9-g10T", "Kf9-g10R", "R#", "T#"]; // Suspected TS and RS
     check(&moves);
 }

@@ -1,44 +1,9 @@
-use std::convert::TryInto;
+use fen4::{Position, PositionParseError};
 use std::str::FromStr;
 
 use crate::types::*;
 
 use thiserror::Error;
-
-#[derive(Error, PartialEq, Clone, Debug)]
-pub enum PositionError {
-    #[error("'{0}' is not a valid column. Valid columns are 'a'-'n'")]
-    ColumnInvalid(char),
-    #[error("'{0}' is not a valid row. Valid rows are 1-14")]
-    RowInvalid(usize),
-    #[error("Position is malformed. Positions should take the form \"a4\"")]
-    Other,
-}
-
-impl FromStr for Position {
-    type Err = PositionError;
-    fn from_str(small: &str) -> Result<Self, Self::Err> {
-        let mut iter = small.chars();
-        let column_letter = iter.next().ok_or(PositionError::Other)?;
-        if column_letter > 'n' || column_letter < 'a' {
-            return Err(PositionError::ColumnInvalid(column_letter));
-        }
-
-        let a: u32 = 'a'.into();
-        let mut column_num: u32 = column_letter.into();
-        column_num -= a;
-        let col: usize = column_num.try_into().unwrap(); // If earlier should guarentee this succeeds
-
-        let number_str = iter.as_str();
-        let row = number_str
-            .parse::<usize>()
-            .map_err(|_| PositionError::Other)?;
-        if row == 0 || row > 14 {
-            return Err(PositionError::RowInvalid(row));
-        }
-        Ok(Position { col, row: row - 1 })
-    }
-}
 
 #[derive(Error, PartialEq, Clone, Debug)]
 pub enum MoveError {
@@ -47,7 +12,7 @@ pub enum MoveError {
     #[error("A move starts with O-O, but is not a correct type of move.")]
     Castle,
     #[error("Unable to parse basic move because {0}")]
-    PositionInvalid(#[from] PositionError),
+    PositionInvalid(#[from] PositionParseError),
 }
 impl FromStr for BasicMove {
     type Err = MoveError;
@@ -120,12 +85,11 @@ impl FromStr for Move {
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         use Move::*;
         Ok(match string {
+            "C" => Claim,
             "#" => Checkmate,
             "S" => Stalemate,
             "T" => Timeout,
             "R" => Resign,
-            "T#" => TimeoutMate,
-            "R#" => ResignMate,
             s if s.starts_with("O-O") => {
                 let mateless = s.trim_end_matches('#');
                 let mates = s.len() - mateless.len();
@@ -135,15 +99,43 @@ impl FromStr for Move {
                     _ => return Err(MoveError::Castle),
                 }
             }
-            s if s.ends_with('R') && !s.ends_with("=R") => {
-                let trimmed = s.strip_suffix('R').unwrap();
-                ResignMove(trimmed.parse::<BasicMove>()?)
-            }
-            s if s.ends_with('T') && !s.ends_with("=T") => {
-                let trimmed = s.strip_suffix('T').unwrap();
-                TimeoutMove(trimmed.parse::<BasicMove>()?)
-            }
             _ => Normal(string.parse::<BasicMove>()?),
+        })
+    }
+}
+
+struct MovePair {
+    main: Move,
+    modifier: Option<Move>,
+}
+
+impl FromStr for MovePair {
+    type Err = MoveError;
+    fn from_str(string: &str) -> Result<Self, Self::Err> {
+        let break_index = if string.len() == 2 {
+            1 // No move is 2 bytes long
+        } else if string.len() > 2 {
+            if (string.ends_with('R') && !string.ends_with("=R"))
+                || (string.ends_with('S') && !string.ends_with("=S"))
+                || (string.ends_with('T') && !string.ends_with("=T"))
+            {
+                string.len() - 1
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+        Ok(if break_index == 0 {
+            Self {
+                main: string.parse()?,
+                modifier: None,
+            }
+        } else {
+            Self {
+                main: string.get(..break_index).ok_or(MoveError::Other)?.parse()?,
+                modifier: Some(string.get(break_index..).ok_or(MoveError::Other)?.parse()?),
+            }
         })
     }
 }
@@ -173,9 +165,9 @@ fn parse_quarter(string: &str) -> Result<(QuarterTurn, &str), IntermediateError>
     }
     let split = trimmed.find(next_move).unwrap_or(string.len() - 1);
     let (main_str, mut rest) = trimmed.split_at(split);
-    let main = main_str
+    let move_pair = main_str
         .trim()
-        .parse()
+        .parse::<MovePair>()
         .map_err(|m| MoveErr(m, main_str.to_owned(), rest.len()))?;
     let mut description = None;
     let mut alternatives = Vec::new();
@@ -193,7 +185,8 @@ fn parse_quarter(string: &str) -> Result<(QuarterTurn, &str), IntermediateError>
     } else {
         return Ok((
             QuarterTurn {
-                main,
+                main: move_pair.main,
+                modifier: move_pair.modifier,
                 description,
                 alternatives,
             },
@@ -214,7 +207,8 @@ fn parse_quarter(string: &str) -> Result<(QuarterTurn, &str), IntermediateError>
     }
     Ok((
         QuarterTurn {
-            main,
+            main: move_pair.main,
+            modifier: move_pair.modifier,
             description,
             alternatives,
         },

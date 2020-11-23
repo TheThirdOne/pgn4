@@ -9,3 +9,4 @@ repository="https://github.com/TheThirdOne/pgn4/"
 
 [dependencies]
 thiserror = "1.0"
+fen4 = "0.3"

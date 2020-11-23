@@ -1,11 +1,4 @@
-/// Position on the board e.g. a4
-///
-/// Both row and col should be in the range 0-13.
-#[derive(PartialEq, Clone, Debug)]
-pub struct Position {
-    pub row: usize,
-    pub col: usize,
-}
+use fen4::{Board, Color, Position};
 
 /// Any move e.g. Ka4-b5, T, O-O, ...
 ///
@@ -24,16 +17,13 @@ pub struct Position {
 /// Castling has a strange property that checks are not notated.
 #[derive(PartialEq, Clone, Debug)]
 pub enum Move {
+    Claim,
     Checkmate,
     Timeout,
-    TimeoutMate,
     Stalemate,
     Resign,
-    ResignMate,
     KingCastle(usize),
     QueenCastle(usize),
-    ResignMove(BasicMove),
-    TimeoutMove(BasicMove),
     Normal(BasicMove),
 }
 
@@ -69,6 +59,30 @@ pub struct Turn {
 #[derive(PartialEq, Clone, Debug)]
 pub struct QuarterTurn {
     pub main: Move,
+    pub modifier: Option<Move>,
     pub description: Option<String>,
     pub alternatives: Vec<Vec<Turn>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Variant {
+    // critical options
+    pub red_teammate: Color,
+    pub initial_board: Board,
+
+    // general options
+    pub king_of_the_hill: bool,
+    pub antichess: bool,
+    pub promote_to: Vec<char>,
+    pub dead_wall: bool,
+    pub en_passant: bool,
+    pub capture_the_king: bool,
+    pub pawn_promotion_rank: usize,
+
+    // ffa specific options
+    pub ffa_dead_king_walking: bool,
+    pub ffa_takeover: bool,
+    pub ffa_opp_x: u16,
+    pub ffa_points_for_mate: u16,
+    pub ffa_play_for_mate: bool,
 }

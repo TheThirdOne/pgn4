@@ -7,6 +7,7 @@ fn opening_diff() {
         .into_iter()
         .map(|s| QuarterTurn {
             main: Move::Normal(s.parse().unwrap()),
+            modifier: None,
             description: None,
             alternatives: Vec::new(),
         })
@@ -17,6 +18,7 @@ fn opening_diff() {
         double_dot: true,
         turns: vec![QuarterTurn {
             main: Move::Normal(insert),
+            modifier: None,
             description: None,
             alternatives: Vec::new(),
         }],
@@ -40,6 +42,7 @@ fn full_turn_diff() {
         .into_iter()
         .map(|s| QuarterTurn {
             main: Move::Normal(s.parse().unwrap()),
+            modifier: None,
             description: None,
             alternatives: Vec::new(),
         })
@@ -48,6 +51,7 @@ fn full_turn_diff() {
         .into_iter()
         .map(|s| QuarterTurn {
             main: Move::Normal(s.parse().unwrap()),
+            modifier: None,
             description: None,
             alternatives: Vec::new(),
         })
