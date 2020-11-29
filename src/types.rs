@@ -79,6 +79,7 @@ pub struct Variant {
     pub capture_the_king: bool,
     pub pawn_promotion_rank: usize,
     pub ncheck: usize,
+    pub chess960: u16,
     // ffa specific options
     pub ffa_dead_king_walking: bool,
     pub ffa_takeover: bool,

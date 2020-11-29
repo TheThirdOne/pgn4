@@ -9,6 +9,7 @@ pub enum VariantError {
     BadEquals,
     InvalidFen4(fen4::BoardParseError),
     UnknownRuleVariant(String),
+    MismatchedCustomPosition,
     BadInt(ParseIntError),
     Other,
 }
@@ -47,6 +48,8 @@ impl PGN4 {
             "Teams" => Variant::team_default(),
             s => return Err(UnknownVariant(s.into())),
         };
+
+        let custom_board = start_fen.is_some();
         if let Some(fen) = start_fen {
             base.initial_board = fen.parse().map_err(|e| {
                 eprintln!("failed to parse fen4 because or error {:?}", e);
@@ -65,8 +68,13 @@ impl PGN4 {
                     if key == "PromoteTo" {
                         base.promote_to = value.chars().collect();
                     } else if key == "Chess960" {
-                        // possibly TODO
-                        return Err(UnknownRuleVariant(key.into()));
+                        let int_value: u16 = value.parse().map_err(|ie| BadInt(ie))?;
+                        base.chess960 = int_value;
+                        let new_board = Board::chess960(int_value);
+                        if custom_board && base.initial_board.board != new_board.board {
+                            return Err(MismatchedCustomPosition);
+                        }
+                        base.initial_board.board = new_board.board;
                     } else {
                         let int_value: u8 = value.parse().map_err(|ie| BadInt(ie))?;
                         match key {
@@ -98,7 +106,6 @@ impl PGN4 {
                         "DeadWall" => &mut base.dead_wall,
                         "CaptureTheKing" => &mut base.capture_the_king,
                         "Antichess" => &mut base.antichess,
-
                         "DeadKingWalking" => &mut base.ffa_dead_king_walking,
                         "Play-4-Mate" => &mut base.ffa_play_for_mate,
                         "Takeover" => &mut base.ffa_takeover,
@@ -128,6 +135,7 @@ impl Variant {
             capture_the_king: false,
             pawn_promotion_rank: 11,
             ncheck: 0,
+            chess960: 0,
 
             ffa_dead_king_walking: false,
             ffa_takeover: false,
@@ -149,6 +157,7 @@ impl Variant {
             capture_the_king: false,
             pawn_promotion_rank: 8,
             ncheck: 0,
+            chess960: 0,
 
             ffa_dead_king_walking: false,
             ffa_takeover: false,
@@ -212,6 +221,9 @@ impl fmt::Display for Variant {
                 write!(f, "{}", c)?;
             }
             write!(f, " ")?;
+        }
+        if self.chess960 != default.chess960 {
+            write!(f, "Chess960={} ", self.chess960)?;
         }
         if self.dead_wall {
             write!(f, "DeadWall ")?;
