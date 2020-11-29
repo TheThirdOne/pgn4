@@ -65,7 +65,8 @@ impl PGN4 {
                     if key == "PromoteTo" {
                         base.promote_to = value.chars().collect();
                     } else if key == "Chess960" {
-                        // possibly verify board state
+                        // possibly TODO
+                        return Err(UnknownRuleVariant(key.into()));
                     } else {
                         let int_value: u8 = value.parse().map_err(|ie| BadInt(ie))?;
                         match key {
@@ -74,17 +75,22 @@ impl PGN4 {
                             "OppX" => base.ffa_opp_x = int_value.into(),
                             "Teammate" => {
                                 base.red_teammate = match int_value {
-                                    1 => Color::Turn(TurnColor::Green),
+                                    1 => Color::Turn(TurnColor::Blue),
                                     2 => Color::Turn(TurnColor::Yellow),
-                                    3 => Color::Turn(TurnColor::Blue),
+                                    3 => Color::Turn(TurnColor::Green),
                                     _ => return Err(Other),
                                 }
                             }
                             _ => return Err(UnknownRuleVariant(key.into())),
                         }
                     }
-                } else if rule.ends_with("check") {
-                    // N-check
+                } else if rule.ends_with("-check") {
+                    let mut iter = rule.split('-');
+                    let count = iter.next().unwrap();
+                    let int_count: usize = count.parse().map_err(|ie| BadInt(ie))?;
+                    base.ncheck = int_count;
+                    // TODO: reject if not None or equal
+                    base.initial_board.extra_options.lives = Some([int_count; 4]);
                 } else {
                     *(match rule {
                         "EnPassant" => &mut base.en_passant,
@@ -121,6 +127,7 @@ impl Variant {
             en_passant: false,
             capture_the_king: false,
             pawn_promotion_rank: 11,
+            ncheck: 0,
 
             ffa_dead_king_walking: false,
             ffa_takeover: false,
@@ -141,6 +148,7 @@ impl Variant {
             en_passant: false,
             capture_the_king: false,
             pawn_promotion_rank: 8,
+            ncheck: 0,
 
             ffa_dead_king_walking: false,
             ffa_takeover: false,
@@ -148,5 +156,93 @@ impl Variant {
             ffa_points_for_mate: 20,
             ffa_play_for_mate: false,
         }
+    }
+    pub fn fairy(&self) -> bool {
+        let normal = ['P', 'B', 'N', 'R', 'Q', 'D', 'K'];
+        for i in 0..14 {
+            for j in 0..14 {
+                if let fen4::Piece::Normal(_, c) = self.initial_board.board[i][j] {
+                    if !normal.contains(&c) {
+                        return true;
+                    }
+                }
+            }
+        }
+        for c in &self.promote_to {
+            if !normal.contains(c) {
+                return true;
+            }
+        }
+        false
+    }
+    pub fn pawn_base_rank(&self) -> usize {
+        self.initial_board.extra_options.pawnbaserank
+    }
+}
+
+use std::fmt;
+impl fmt::Display for Variant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let default = if let Color::Turn(c) = self.red_teammate {
+            write!(f, "TEAM - ")?;
+            if c != TurnColor::Yellow {
+                let int_value: usize = c.into();
+                write!(f, "Teammate={} ", int_value)?;
+            }
+            Self::team_default()
+        } else {
+            write!(f, "FFA - ")?;
+            Self::ffa_default()
+        };
+        if self.initial_board != default.initial_board {
+            write!(f, "CUSTOM_POSITION ")?;
+            if self.fairy() {
+                write!(f, "FAIRY ")?;
+            }
+        }
+        if self.king_of_the_hill {
+            write!(f, "KotH ")?;
+        }
+        if self.antichess {
+            write!(f, "Antichess ")?;
+        }
+        if self.promote_to != default.promote_to {
+            write!(f, "PromoteTo=")?;
+            for c in &self.promote_to {
+                write!(f, "{}", c)?;
+            }
+            write!(f, " ")?;
+        }
+        if self.dead_wall {
+            write!(f, "DeadWall ")?;
+        }
+        if self.en_passant {
+            write!(f, "EnPassant ")?;
+        }
+        if self.capture_the_king {
+            write!(f, "CaptureTheKing ")?;
+        }
+        if self.pawn_promotion_rank != default.pawn_promotion_rank {
+            write!(f, "Prom={} ", self.pawn_promotion_rank)?;
+        }
+        if self.ncheck != default.ncheck {
+            write!(f, "{}-check ", self.ncheck)?;
+        }
+        if self.ffa_dead_king_walking {
+            write!(f, "DeadKingWalking ")?;
+        }
+        if self.ffa_takeover {
+            write!(f, "Takeover ")?;
+        }
+        if self.ffa_opp_x != default.ffa_opp_x {
+            write!(f, "OppX={} ", self.ffa_opp_x)?;
+        }
+        if self.ffa_points_for_mate != default.ffa_points_for_mate {
+            write!(f, "PointsForMate={} ", self.ffa_points_for_mate)?;
+        }
+        if self.ffa_play_for_mate {
+            write!(f, "Play-4-Mate ")?;
+        }
+        Ok(())
     }
 }

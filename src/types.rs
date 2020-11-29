@@ -78,7 +78,7 @@ pub struct Variant {
     pub en_passant: bool,
     pub capture_the_king: bool,
     pub pawn_promotion_rank: usize,
-
+    pub ncheck: usize,
     // ffa specific options
     pub ffa_dead_king_walking: bool,
     pub ffa_takeover: bool,
