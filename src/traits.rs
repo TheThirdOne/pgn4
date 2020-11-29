@@ -119,6 +119,97 @@ impl PGN4 {
         }
         Ok(base)
     }
+    pub fn result(&self) -> GameResult {
+        use GameResult::*;
+        let mut result: Option<&str> = None;
+        let mut red_name: Option<&str> = None;
+        let mut blue_name: Option<&str> = None;
+        let mut yellow_name: Option<&str> = None;
+        let mut green_name: Option<&str> = None;
+        for (key, value) in &self.bracketed {
+            match key.as_ref() {
+                "Result" => {
+                    if result.is_some() {
+                        return Error;
+                    }
+                    result = Some(&value);
+                }
+                "Red" => {
+                    if red_name.is_some() {
+                        return Error;
+                    }
+                    red_name = Some(&value);
+                }
+                "Blue" => {
+                    if blue_name.is_some() {
+                        return Error;
+                    }
+                    blue_name = Some(&value);
+                }
+                "Yellow" => {
+                    if yellow_name.is_some() {
+                        return Error;
+                    }
+                    yellow_name = Some(&value);
+                }
+                "Green" => {
+                    if green_name.is_some() {
+                        return Error;
+                    }
+                    green_name = Some(&value);
+                }
+                _ => {}
+            }
+        }
+        if let Some(r) = result {
+            if r == "Aborted" {
+                Aborted
+            } else if r == "Draw" {
+                Team(false, false)
+            } else if r == "1-0" {
+                Team(true, false)
+            } else if r == "0-1" {
+                Team(false, true)
+            } else {
+                let colors = [red_name, blue_name, yellow_name, green_name];
+                let mut scores = [0; 4];
+                let mut segments = r.split(" - ");
+                for i in 0..4 {
+                    if let Some(color_name) = colors[i] {
+                        let segment = match segments.next() {
+                            Some(s) => s.trim(),
+                            None => return Error,
+                        };
+                        let mut iter = segment.split(':');
+                        let name = match iter.next() {
+                            Some(s) => s.trim(),
+                            None => return Error,
+                        };
+                        let score = match iter.next() {
+                            Some(s) => s.trim(),
+                            None => return Error,
+                        };
+                        if iter.next().is_some() {
+                            return Error;
+                        }
+                        if color_name != name {
+                            return Error;
+                        }
+                        scores[i] = match score.parse() {
+                            Ok(int) => int,
+                            Err(_) => return Error,
+                        };
+                    }
+                }
+                if segments.next().is_some() {
+                    return Error;
+                }
+                FFA(scores)
+            }
+        } else {
+            Error
+        }
+    }
 }
 
 impl Variant {

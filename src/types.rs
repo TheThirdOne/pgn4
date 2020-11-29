@@ -27,6 +27,14 @@ pub enum Move {
     Normal(BasicMove),
 }
 
+#[derive(PartialEq, Clone, Debug)]
+pub enum GameResult {
+    Error,
+    Aborted,
+    Team(bool, bool),
+    FFA([u16; 4]),
+}
+
 /// Moves containing to and from positions
 ///
 /// If the piece moved is a pawn, `piece` = 'P'. Similarly, is a pawn is captured, `captured` = Some('P').
