@@ -15,34 +15,19 @@ pub enum VariantError {
 }
 
 impl PGN4 {
-    pub fn variant(&self) -> Result<Variant, VariantError> {
-        use VariantError::*;
-        let mut variant: Option<&str> = None;
-        let mut rule_variants: Option<&str> = None;
-        let mut start_fen: Option<&str> = None;
+    pub fn tag<'a>(&'a self,tag_name: &'_ str) -> Option<&'a str> {
         for (key, value) in &self.bracketed {
-            match key.as_ref() {
-                "Variant" => {
-                    if variant.is_some() {
-                        return Err(RepeatedBracket);
-                    }
-                    variant = Some(&value);
-                }
-                "RuleVariants" => {
-                    if rule_variants.is_some() {
-                        return Err(RepeatedBracket);
-                    }
-                    rule_variants = Some(&value);
-                }
-                "StartFen4" => {
-                    if start_fen.is_some() {
-                        return Err(RepeatedBracket);
-                    }
-                    start_fen = Some(&value);
-                }
-                _ => {}
+            if key == tag_name {
+                return Some(&value);
             }
         }
+        None
+    }
+    pub fn variant(&self) -> Result<Variant, VariantError> {
+        use VariantError::*;
+        let variant = self.tag("Variant");
+        let rule_variants = self.tag("RuleVariants");
+        let start_fen = self.tag("StartFen4");
         let mut base = match variant.unwrap_or("") {
             "Solo" | "FFA" => Variant::ffa_default(),
             "Teams" => Variant::team_default(),
@@ -121,46 +106,11 @@ impl PGN4 {
     }
     pub fn result(&self) -> GameResult {
         use GameResult::*;
-        let mut result: Option<&str> = None;
-        let mut red_name: Option<&str> = None;
-        let mut blue_name: Option<&str> = None;
-        let mut yellow_name: Option<&str> = None;
-        let mut green_name: Option<&str> = None;
-        for (key, value) in &self.bracketed {
-            match key.as_ref() {
-                "Result" => {
-                    if result.is_some() {
-                        return Error;
-                    }
-                    result = Some(&value);
-                }
-                "Red" => {
-                    if red_name.is_some() {
-                        return Error;
-                    }
-                    red_name = Some(&value);
-                }
-                "Blue" => {
-                    if blue_name.is_some() {
-                        return Error;
-                    }
-                    blue_name = Some(&value);
-                }
-                "Yellow" => {
-                    if yellow_name.is_some() {
-                        return Error;
-                    }
-                    yellow_name = Some(&value);
-                }
-                "Green" => {
-                    if green_name.is_some() {
-                        return Error;
-                    }
-                    green_name = Some(&value);
-                }
-                _ => {}
-            }
-        }
+        let result = self.tag("Result");
+        let red_name  = self.tag("Red");
+        let blue_name  = self.tag("Blue");
+        let yellow_name  = self.tag("Yellow");
+        let green_name = self.tag("Green");
         if let Some(r) = result {
             if r == "Aborted" {
                 Aborted
