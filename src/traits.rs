@@ -15,7 +15,7 @@ pub enum VariantError {
 }
 
 impl PGN4 {
-    pub fn tag<'a>(&'a self,tag_name: &'_ str) -> Option<&'a str> {
+    pub fn tag<'a>(&'a self, tag_name: &'_ str) -> Option<&'a str> {
         for (key, value) in &self.bracketed {
             if key == tag_name {
                 return Some(&value);
@@ -107,9 +107,9 @@ impl PGN4 {
     pub fn result(&self) -> GameResult {
         use GameResult::*;
         let result = self.tag("Result");
-        let red_name  = self.tag("Red");
-        let blue_name  = self.tag("Blue");
-        let yellow_name  = self.tag("Yellow");
+        let red_name = self.tag("Red");
+        let blue_name = self.tag("Blue");
+        let yellow_name = self.tag("Yellow");
         let green_name = self.tag("Green");
         if let Some(r) = result {
             if r == "Aborted" {
