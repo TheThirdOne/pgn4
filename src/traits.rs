@@ -104,6 +104,26 @@ impl PGN4 {
         }
         Ok(base)
     }
+
+    pub fn ratings(&self) -> Option<[u16; 4]> {
+        fn tou16(s: Option<&str>) -> Option<u16> {
+            s.map(|s| s.parse::<u16>().ok()).flatten()
+        }
+        let red = tou16(self.tag("RedElo"))?;
+        let blue = tou16(self.tag("BlueElo"))?;
+        let yellow = tou16(self.tag("YellowElo"))?;
+        let green = tou16(self.tag("GreenElo"))?;
+        Some([red, blue, yellow, green])
+    }
+
+    pub fn players(&self) -> Option<[&str; 4]> {
+        let red = self.tag("Red")?;
+        let blue = self.tag("Blue")?;
+        let yellow = self.tag("Yellow")?;
+        let green = self.tag("Green")?;
+        Some([red, blue, yellow, green])
+    }
+
     pub fn result(&self) -> GameResult {
         use GameResult::*;
         let result = self.tag("Result");
@@ -159,6 +179,99 @@ impl PGN4 {
         } else {
             Error
         }
+    }
+    pub fn append_move(&mut self, path: &[usize], q: QuarterTurn) -> Result<usize, ()> {
+        if path.len() % 2 == 0 {
+            // Format for path is [ply forward] : [alternative index, plyforward] * so it must be odd
+            eprintln!("Invalid path length");
+            return Err(());
+        }
+        if path.len() == 1 && path[0] == 0 && self.turns.len() == 0 {
+            self.turns.push(Turn {
+                number: 1,
+                double_dot: false,
+                turns: vec![q],
+            });
+            return Ok(0);
+        }
+        fn helper(
+            turns: &mut Vec<Turn>,
+            path: &[usize],
+            q: QuarterTurn,
+            mut total: usize,
+        ) -> Result<usize, ()> {
+            let ply = path[0];
+            if ply == 0 && path.len() > 2 {
+                eprintln!("E1");
+                return Err(());
+            }
+            let mut current = 0;
+            for turn in turns.iter_mut() {
+                for qturn in &mut turn.turns {
+                    current += 1;
+                    if path.len() > 2 {
+                        if current == ply {
+                            let alt = path[1];
+                            if alt == 0 || qturn.alternatives.len() < alt {
+                                eprintln!("E2");
+                                return Err(());
+                            } else {
+                                return helper(
+                                    &mut qturn.alternatives[alt - 1],
+                                    &path[2..],
+                                    q,
+                                    total,
+                                );
+                            }
+                        }
+                    } else if ply == current - 1 {
+                        if qturn.main == q.main && qturn.modifier == q.modifier {
+                            return Ok(0);
+                        } else {
+                            eprintln!("Starting to search alternatives {} {}", qturn, q);
+                            let mut i = 0;
+                            for alt in &qturn.alternatives {
+                                i += 1;
+                                let tmp = &alt[0].turns[0];
+                                if tmp.main == q.main && tmp.modifier == q.modifier {
+                                    return Ok(i);
+                                }
+                            }
+                            let number = if total % 4 == 0 { total / 4 + 1 } else { 0 };
+                            qturn.alternatives.push(vec![Turn {
+                                number,
+                                double_dot: true,
+                                turns: vec![q],
+                            }]);
+                            return Ok(i + 1);
+                        }
+                    }
+                    total += 1;
+                }
+            }
+            if ply == current {
+                // Use total % 4 for now to determine if a new turn is needed
+                // In the future use alivecount
+                let last = turns.len() - 1;
+                if total % 4 == 0 {
+                    let number = total / 4 + 1;
+                    let double_dot = false; //turns[0].double_dot;
+                    turns.push(Turn {
+                        number,
+                        double_dot,
+                        turns: vec![q],
+                    });
+                } else {
+                    turns[last].turns.push(q);
+                }
+                return Ok(0);
+            } else {
+                eprintln!("Played out all moves {} {:?} {}", ply, path, turns.len());
+                eprintln!("E3");
+                return Err(());
+            }
+        }
+        helper(&mut self.turns, path, q, 0)
     }
 }
 
