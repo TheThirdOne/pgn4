@@ -39,7 +39,6 @@ impl fmt::Display for Move {
             f,
             "{}",
             match self {
-                Claim => "C",
                 Checkmate => "#",
                 Stalemate => "S",
                 Timeout => "T",
@@ -83,6 +82,9 @@ impl fmt::Display for QuarterTurn {
         write!(f, "{}", self.main)?;
         if let Some(modifier) = &self.modifier {
             write!(f, "{}", modifier)?;
+        }
+        if self.extra_stalemate {
+            write!(f, "S")?;
         }
         if let Some(d) = &self.description {
             write!(f, " {{ {} }}", d)?;

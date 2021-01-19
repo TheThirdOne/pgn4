@@ -15,9 +15,8 @@ use fen4::{Board, Color, Position};
 /// following your pieces dying. That is notated like "R#".
 ///
 /// Castling has a strange property that checks are not notated.
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Move {
-    Claim,
     Checkmate,
     Timeout,
     Stalemate,
@@ -39,7 +38,7 @@ pub enum GameResult {
 ///
 /// If the piece moved is a pawn, `piece` = 'P'. Similarly, is a pawn is captured, `captured` = Some('P').
 /// `checks` should be less than 4 and `mates` should be less than 3 (mating three players simultaneously doesn't get notated).
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct BasicMove {
     pub piece: char,
     pub from: Position,
@@ -68,6 +67,7 @@ pub struct Turn {
 pub struct QuarterTurn {
     pub main: Move,
     pub modifier: Option<Move>,
+    pub extra_stalemate: bool,
     pub description: Option<String>,
     pub alternatives: Vec<Vec<Turn>>,
 }

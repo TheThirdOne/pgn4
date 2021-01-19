@@ -85,7 +85,6 @@ impl FromStr for Move {
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         use Move::*;
         Ok(match string {
-            "C" => Claim,
             "#" => Checkmate,
             "S" => Stalemate,
             "T" => Timeout,
@@ -107,15 +106,22 @@ impl FromStr for Move {
 struct MovePair {
     main: Move,
     modifier: Option<Move>,
+    stalemate: bool,
 }
 
 impl FromStr for MovePair {
     type Err = MoveError;
     fn from_str(string: &str) -> Result<Self, Self::Err> {
+        let mut stalemate = false;
         let break_index = if string.len() == 2 {
             1 // No move is 2 bytes long
         } else if string.len() > 2 {
-            if (string.ends_with('R') && !string.ends_with("=R"))
+            if string.ends_with("RS") && !string.ends_with("=RS")
+                || string.ends_with("TS") && !string.ends_with("=TS")
+            {
+                stalemate = true;
+                string.len() - 2
+            } else if (string.ends_with('R') && !string.ends_with("=R"))
                 || (string.ends_with('S') && !string.ends_with("=S"))
                 || (string.ends_with('T') && !string.ends_with("=T"))
             {
@@ -130,11 +136,18 @@ impl FromStr for MovePair {
             Self {
                 main: string.parse()?,
                 modifier: None,
+                stalemate,
             }
         } else {
             Self {
                 main: string.get(..break_index).ok_or(MoveError::Other)?.parse()?,
-                modifier: Some(string.get(break_index..).ok_or(MoveError::Other)?.parse()?),
+                modifier: Some(
+                    string
+                        .get(break_index..(break_index + 1))
+                        .ok_or(MoveError::Other)?
+                        .parse()?,
+                ),
+                stalemate,
             }
         })
     }
@@ -143,6 +156,8 @@ impl FromStr for MovePair {
 #[derive(PartialEq, Clone, Debug)]
 enum IntermediateError {
     Other(usize),
+    TurnNumber(usize),
+    TurnTooLong(usize),
     MoveErr(MoveError, String, usize),
     Description(usize),
 }
@@ -187,12 +202,15 @@ fn parse_quarter(string: &str) -> Result<(QuarterTurn, &str), IntermediateError>
             QuarterTurn {
                 main: move_pair.main,
                 modifier: move_pair.modifier,
+                extra_stalemate: move_pair.stalemate,
                 description,
                 alternatives,
             },
             rest,
         ));
     };
+
+    rest = rest.trim_start();
 
     while let Some(rest_tmp) = rest.strip_prefix('(') {
         rest = rest_tmp;
@@ -209,6 +227,7 @@ fn parse_quarter(string: &str) -> Result<(QuarterTurn, &str), IntermediateError>
         QuarterTurn {
             main: move_pair.main,
             modifier: move_pair.modifier,
+            extra_stalemate: move_pair.stalemate,
             description,
             alternatives,
         },
@@ -219,12 +238,12 @@ fn parse_quarter(string: &str) -> Result<(QuarterTurn, &str), IntermediateError>
 fn parse_turn(string: &str) -> Result<(Turn, &str), IntermediateError> {
     use IntermediateError::*;
     let trimmed = string.trim_start();
-    let dot_loc = trimmed.find('.').ok_or(Other(trimmed.len()))?;
+    let dot_loc = trimmed.find('.').ok_or(TurnNumber(trimmed.len()))?;
     let (number_str, dots) = trimmed.split_at(dot_loc);
     let number = if number_str == "" {
         0
     } else {
-        number_str.parse().map_err(|_| Other(trimmed.len()))?
+        number_str.parse().map_err(|_| TurnNumber(trimmed.len()))?
     };
     let dot = dots.strip_prefix('.').unwrap();
     let (mut rest, double_dot) = if let Some(dotted) = dot.strip_prefix('.') {
@@ -239,7 +258,7 @@ fn parse_turn(string: &str) -> Result<(Turn, &str), IntermediateError> {
     turns.push(qturn);
     while let Some(rest_tmp) = rest.strip_prefix("..") {
         if turns.len() >= 4 {
-            return Err(Other(for_error));
+            return Err(TurnTooLong(for_error));
         }
         let (qturn, rest_tmp) = parse_quarter(rest_tmp)?;
         rest = rest_tmp.trim_start();
@@ -259,6 +278,12 @@ fn parse_turn(string: &str) -> Result<(Turn, &str), IntermediateError> {
 pub enum PGN4Error {
     #[error("Some error occured at {0}")]
     Other(ErrorLocation),
+    #[error(
+        "Turn number at {0} is malformed it should either be a number > 0 or instead just be a .."
+    )]
+    TurnNumber(ErrorLocation),
+    #[error("More than 4 quarter turns are present in the turn starting at {0}")]
+    TurnTooLong(ErrorLocation),
     #[error("Tag starting at {0} is malformed")]
     BadTagged(ErrorLocation),
     #[error("Move \"{1}\" at {2} failed to parse. {0}")]
@@ -333,6 +358,8 @@ fn add_details(ie: IntermediateError, string: &str) -> PGN4Error {
     use IntermediateError::*;
     match ie {
         Other(r) => PGN4Error::Other(map_location(r, string)),
+        TurnNumber(r) => PGN4Error::TurnNumber(map_location(r, string)),
+        TurnTooLong(r) => PGN4Error::TurnTooLong(map_location(r, string)),
         MoveErr(m, e, r) => PGN4Error::BadMove(m, e, map_location(r, string)),
         Description(r) => PGN4Error::BadDescription(map_location(r, string)),
     }
