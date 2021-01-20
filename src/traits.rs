@@ -237,7 +237,6 @@ impl PGN4 {
                         if qturn.main == q.main && qturn.modifier == q.modifier {
                             return Ok(0);
                         } else {
-                            eprintln!("Starting to search alternatives {} {}", qturn, q);
                             let mut i = 0;
                             for alt in &qturn.alternatives {
                                 i += 1;
