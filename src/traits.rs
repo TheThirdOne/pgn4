@@ -2,15 +2,24 @@ use crate::*;
 use fen4::{Board, Color, TurnColor};
 use std::num::ParseIntError;
 
-#[derive(Debug, Clone)]
+use thiserror::Error;
+#[derive(Error, PartialEq, Debug, Clone)]
 pub enum VariantError {
+    #[error("A bracketed value is repeated")]
     RepeatedBracket,
+    #[error("Variant \"{0}\" is not recognized")]
     UnknownVariant(String),
+    #[error("RuleVariant involving '=' is malformed")]
     BadEquals,
-    InvalidFen4(fen4::BoardParseError),
+    #[error("Initial board tag failed to parse because of: {0}")]
+    InvalidFen4(#[from] fen4::BoardParseError),
+    #[error("RuleVariant \"{0}\" is not recognized")]
     UnknownRuleVariant(String),
+    #[error("Custom position does not match what the variant would suggest")]
     MismatchedCustomPosition,
-    BadInt(ParseIntError),
+    #[error("An integer failed to parse for reason: {0}")]
+    BadInt(#[from] ParseIntError),
+    #[error("Some other error occured")]
     Other,
 }
 
