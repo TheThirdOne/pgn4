@@ -274,12 +274,143 @@ impl PGN4 {
                 }
                 return Ok(0);
             } else {
-                eprintln!("Played out all moves {} {:?} {}", ply, path, turns.len());
-                eprintln!("E3");
                 return Err(());
             }
         }
         helper(&mut self.turns, path, q, 0)
+    }
+    pub fn promote_to_mainline(&mut self, path: &[usize]) -> Result<(), ()> {
+        if path.len() % 2 == 0 {
+            return Err(());
+        }
+        fn helper(turns: &mut Vec<Turn>, path: &[usize]) -> Result<(), ()> {
+            let ply = path[0];
+            if ply == 0 {
+                return Err(());
+            }
+            if path.len() == 1 {
+                return Ok(());
+            }
+            let mut current = 0;
+            let t_len = turns.len();
+            for i in 0..t_len {
+                let q_len = turns[i].turns.len();
+                for j in 0..q_len {
+                    current += 1;
+                    if current == ply {
+                        let alt = path[1];
+                        let mut to_mainline = {
+                            let alternatives = &mut turns[i].turns[j].alternatives;
+                            if alt == 0 || alternatives.len() < alt {
+                                eprintln!("E2");
+                                return Err(());
+                            } else {
+                                helper(&mut alternatives[alt - 1], &path[2..])?;
+                                alternatives.remove(alt - 1)
+                            }
+                        };
+                        // Start by moving over alternatives before it becomes harder
+                        std::mem::swap(
+                            &mut to_mainline[0].turns[0].alternatives,
+                            &mut turns[i].turns[j].alternatives,
+                        );
+
+                        // Break turns => turns, turn, to_alternate
+                        let mut to_alternate = turns.split_off(i);
+                        let mut beginning_halfturn = to_alternate[0].turns.split_off(j);
+                        std::mem::swap(&mut beginning_halfturn, &mut to_alternate[0].turns);
+                        let mut turn = Turn {
+                            number: to_alternate[0].number,
+                            double_dot: to_alternate[0].double_dot,
+                            turns: beginning_halfturn,
+                        };
+
+                        // Complete swap of number and doubledot
+                        to_alternate[0].number = to_mainline[0].number;
+                        to_alternate[0].double_dot = to_mainline[0].double_dot;
+
+                        // to_alternate is now complete, add it to the front of alternatives
+                        to_mainline[0].turns[0].alternatives.insert(0, to_alternate);
+
+                        // Prepend turn into to_mainline
+                        turn.turns.append(&mut to_mainline[0].turns);
+                        std::mem::swap(&mut turn, &mut to_mainline[0]);
+
+                        // Add to_mainline back into turn
+                        turns.append(&mut to_mainline);
+                        return Ok(());
+                    }
+                }
+            }
+            return Err(());
+        }
+        helper(&mut self.turns, path)
+    }
+    pub fn delete_from(&mut self, path: &[usize]) -> Result<(), ()> {
+        if path.len() % 2 == 0 {
+            return Err(());
+        }
+        fn helper(turns: &mut Vec<Turn>, path: &[usize]) -> Result<(), ()> {
+            let ply = path[0];
+            if ply == 0 {
+                return Err(());
+            }
+            let mut current = 0;
+            let t_len = turns.len();
+            for i in 0..t_len {
+                let q_len = turns[i].turns.len();
+                for j in 0..q_len {
+                    current += 1;
+                    if current == ply {
+                        if path.len() > 2 {
+                            let alt = path[1];
+                            let alternatives = &mut turns[i].turns[j].alternatives;
+                            if alt == 0 || alternatives.len() < alt {
+                                return Err(());
+                            } else {
+                                helper(&mut alternatives[alt - 1], &path[2..])?;
+                                // If the deletion makes an alternative empty, delete it
+                                if alternatives[alt - 1].len() == 0 {
+                                    alternatives.remove(alt - 1);
+                                }
+                            }
+                        } else {
+                            // Start by deleting unneeded qturns
+                            turns.truncate(i + 1);
+                            turns[i].turns.truncate(j + 1);
+
+                            if turns[i].turns[j].alternatives.len() != 0 {
+                                // If it has an alternative, promote the first one
+                                let mut to_append = turns[i].turns[j].alternatives.remove(0);
+                                let mut first_turn = to_append.remove(0);
+
+                                // Swap over any remaining alternatives
+                                std::mem::swap(
+                                    &mut first_turn.turns[0].alternatives,
+                                    &mut turns[i].turns[j].alternatives,
+                                );
+
+                                // Add moves onto the current turn (replacing the deleted move)
+                                turns[i].turns.pop();
+                                turns[i].turns.append(&mut first_turn.turns);
+
+                                // Add the rest of the turns
+                                turns.append(&mut to_append);
+                            } else {
+                                // If no alternatives, just delete it and if it is the only qturn in a turn delete that too.
+                                turns[i].turns.pop();
+                                if turns[i].turns.len() == 0 {
+                                    turns.pop();
+                                }
+                            }
+                        }
+                        return Ok(());
+                    }
+                }
+            }
+            return Err(());
+        }
+        helper(&mut self.turns, path)
     }
 }
 
