@@ -15,7 +15,7 @@ use fen4::{Board, Color, Position};
 /// following your pieces dying. That is notated like "R#".
 ///
 /// Castling has a strange property that checks are not notated.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Move {
     Checkmate,
     Timeout,

@@ -59,6 +59,12 @@ impl fmt::Display for Move {
     }
 }
 
+impl fmt::Debug for Move {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Move").field(&self.to_string()).finish()
+    }
+}
+
 impl fmt::Display for Turn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.number != 0 {
