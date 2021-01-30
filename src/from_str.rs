@@ -157,6 +157,7 @@ impl FromStr for MovePair {
 enum IntermediateError {
     Other(usize),
     TurnNumber(usize),
+    TurnNumberParse(usize, String),
     TurnTooLong(usize),
     MoveErr(MoveError, String, usize),
     Description(usize),
@@ -243,7 +244,7 @@ fn parse_turn(string: &str) -> Result<(Turn, &str), IntermediateError> {
     let number = if number_str == "" {
         0
     } else {
-        number_str.parse().map_err(|_| TurnNumber(trimmed.len()))?
+        number_str.parse().map_err(|_| TurnNumberParse(trimmed.len(),number_str.to_string()))?
     };
     let dot = dots.strip_prefix('.').unwrap();
     let (mut rest, double_dot) = if let Some(dotted) = dot.strip_prefix('.') {
@@ -279,9 +280,13 @@ pub enum PGN4Error {
     #[error("Some error occured at {0}")]
     Other(ErrorLocation),
     #[error(
-        "Turn number at {0} is malformed it should either be a number > 0 or instead just be a .."
+        "Expected a turn number starting at {0}, but there isn't a dot"
     )]
     TurnNumber(ErrorLocation),
+    #[error(
+        "Turn number at {0} is malformed \"{1}\" should be a number or \"\""
+    )]
+    TurnNumberParse(ErrorLocation,String),
     #[error("More than 4 quarter turns are present in the turn starting at {0}")]
     TurnTooLong(ErrorLocation),
     #[error("Tag starting at {0} is malformed")]
@@ -359,6 +364,7 @@ fn add_details(ie: IntermediateError, string: &str) -> PGN4Error {
     match ie {
         Other(r) => PGN4Error::Other(map_location(r, string)),
         TurnNumber(r) => PGN4Error::TurnNumber(map_location(r, string)),
+        TurnNumberParse(r,num) => PGN4Error::TurnNumberParse(map_location(r, string),num),
         TurnTooLong(r) => PGN4Error::TurnTooLong(map_location(r, string)),
         MoveErr(m, e, r) => PGN4Error::BadMove(m, e, map_location(r, string)),
         Description(r) => PGN4Error::BadDescription(map_location(r, string)),
