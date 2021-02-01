@@ -15,7 +15,7 @@ use fen4::{Board, Color, Position};
 /// following your pieces dying. That is notated like "R#".
 ///
 /// Castling has a strange property that checks are not notated.
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Move {
     Checkmate,
     Timeout,
@@ -63,7 +63,7 @@ pub struct Turn {
 }
 
 /// A single move optionally with a description and alternatives
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone)]
 pub struct QuarterTurn {
     pub main: Move,
     pub modifier: Option<Move>,

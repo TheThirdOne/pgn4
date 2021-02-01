@@ -59,12 +59,33 @@ impl fmt::Display for Move {
     }
 }
 
-impl fmt::Debug for Move {
+
+struct MoveHelper<'a>(&'a Move);
+impl fmt::Debug for MoveHelper<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Move").field(&self.to_string()).finish()
+        f.debug_tuple("Move").field(&self.0.to_string()).finish()
     }
 }
 
+impl fmt::Debug for QuarterTurn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut out = f.debug_struct("QuarterTurn");
+        out.field("main", &MoveHelper(&self.main));
+        if let Some(m) = &self.modifier {
+            out.field("modifier", &MoveHelper(m));
+        }
+        if self.extra_stalemate {
+            out.field("extra_stalemate", &true);
+        }
+        if let Some(d) = &self.description {
+            out.field("description", d);
+        }
+        if self.alternatives.len() != 0 {
+            out.field("alternatives", &self.alternatives);
+        }
+        out.finish()
+    }
+}
 impl fmt::Display for Turn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.number != 0 {
