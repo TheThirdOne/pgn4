@@ -1,4 +1,5 @@
 mod display;
+mod from;
 mod from_str;
 mod traits;
 mod types;

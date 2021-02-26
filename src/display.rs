@@ -59,7 +59,6 @@ impl fmt::Display for Move {
     }
 }
 
-
 struct MoveHelper<'a>(&'a Move);
 impl fmt::Debug for MoveHelper<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
