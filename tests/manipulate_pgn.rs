@@ -38,6 +38,56 @@ fn add_first(work: &mut pgn4::PGN4, to_add: &pgn4::PGN4) {
     }
 }
 
+use pgn4::VisitorCommon;
+
+#[test]
+fn visitor_basic() {
+    let mut base: pgn4::PGN4 = ADDED_ON_EACH.parse().unwrap();
+    let path = &[2, 1, 1];
+    let mut partial = pgn4::PartialPath::default();
+    let mut visitor = pgn4::Visitor::new(&base);
+    visitor = visitor.follow_once(&mut partial, path).unwrap();
+    eprintln!("{}", visitor.qturn().unwrap().main);
+    println!("{:?}", partial);
+    visitor = visitor.follow_once(&mut partial, path).unwrap();
+    println!("{:?}", partial);
+    eprintln!("{}", visitor.qturn().unwrap().main);
+    visitor = visitor.follow_once(&mut partial, path).unwrap();
+    eprintln!("{}", visitor.qturn().unwrap().main);
+    panic!("Show");
+}
+
+#[test]
+fn visitor_mut_basic() {
+    let mut base: pgn4::PGN4 = ADDED_ON_EACH.parse().unwrap();
+    let mut visitor = pgn4::VisitorMut::new(&mut base);
+    visitor = visitor.next().unwrap();
+    eprintln!("{}", visitor.qturn().unwrap().main);
+    visitor = visitor.next().unwrap();
+    eprintln!("{}", visitor.qturn().unwrap().main);
+    visitor = visitor.into_alternative(1).unwrap();
+    eprintln!("{}", visitor.qturn().unwrap().main);
+    panic!("Show");
+}
+
+#[test]
+fn visitor_mut_reborrow() {
+    let mut base: pgn4::PGN4 = ADDED_ON_EACH.parse().unwrap();
+    let mut visitor = pgn4::VisitorMut::new(&mut base);
+    visitor = visitor.next().unwrap();
+    eprintln!("{}", visitor.qturn().unwrap().main);
+    visitor = visitor.next().unwrap();
+    eprintln!("{}", visitor.qturn().unwrap().main);
+    {
+        let mut b = visitor.reborrow();
+        b = b.next().unwrap();
+        eprintln!("{}", b.qturn().unwrap().main);
+    };
+    visitor = visitor.next().unwrap();
+    eprintln!("{}", visitor.qturn().unwrap().main);
+    panic!("Show");
+}
+
 #[test]
 fn copies_work() {
     let base: pgn4::PGN4 = BASIC_GAME.parse().unwrap();
