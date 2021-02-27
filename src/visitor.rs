@@ -1,6 +1,7 @@
 use crate::*;
 use std::fmt;
 
+/// A partially followed path.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PartialPath<'a> {
     main: &'a [usize],
@@ -59,6 +60,7 @@ pub enum VisitingError {
     Internal,
 }
 
+/// A view into the quarterturns of a pgn4.
 #[derive(Debug, Clone)]
 pub struct Visitor<'a> {
     turns: &'a Vec<Turn>,
@@ -66,6 +68,7 @@ pub struct Visitor<'a> {
     j: usize,
 }
 
+/// A mutable view into the quarterturns of a pgn4.
 #[derive(Debug)]
 pub struct VisitorMut<'a> {
     turns: &'a mut Vec<Turn>,
@@ -74,6 +77,7 @@ pub struct VisitorMut<'a> {
 }
 
 impl<'a> Visitor<'a> {
+    /// Creates a new Visitor
     pub fn new(pgn4: &'a PGN4) -> Self {
         Self {
             turns: &pgn4.turns,
@@ -84,6 +88,7 @@ impl<'a> Visitor<'a> {
 }
 
 impl<'a> VisitorMut<'a> {
+    /// Creates a new VisitorMut
     pub fn new(pgn4: &'a mut PGN4) -> Self {
         Self {
             turns: &mut pgn4.turns,
@@ -91,6 +96,9 @@ impl<'a> VisitorMut<'a> {
             j: usize::MAX,
         }
     }
+    /// Reborrows VisitorMut because it cannot be cloned. By keeping a trail of reborrows, it is possible to backtrack with VisitorMut
+    ///
+    /// TODO: example of usefullness
     pub fn reborrow<'b>(&'b mut self) -> VisitorMut<'b> {
         VisitorMut {
             turns: &mut self.turns,
@@ -98,6 +106,7 @@ impl<'a> VisitorMut<'a> {
             j: self.j,
         }
     }
+    /// View the currently hovered QuarterTurn if it exists
     pub fn qturn_mut<'b>(&'b mut self) -> Option<&'b mut QuarterTurn> {
         if self.j == usize::MAX {
             None
@@ -106,15 +115,23 @@ impl<'a> VisitorMut<'a> {
         }
     }
 }
+
+/// All common methods between Visitor and VisitorMut
 pub trait VisitorCommon
 where
     Self: Sized,
 {
+    /// Is this hovered over the last quarterturn in the line
     fn last(&self) -> bool;
+    /// How many alternatives are present on the hovered quarterturn.
     fn alternatives(&self) -> usize;
+    /// View the currently hovered QuarterTurn if it exists
     fn qturn(&self) -> Option<&QuarterTurn>;
+    /// Move the visitor one forward
     fn next(self) -> Result<Self, VisitingError>;
+    /// Move the visitor into one of the current qturns alternatives. Leaves the visitor at the start of the line without any hovered quarterturn.
     fn into_alternative(self, alt: usize) -> Result<Self, VisitingError>;
+    /// Follow one step of a path.
     fn follow_once<'a>(
         mut self,
         partial: &'_ mut PartialPath<'a>,
@@ -149,13 +166,14 @@ where
                 if main[len + 2] == 0 {
                     return Err(VisitingError::ZeroInPath);
                 }
-                self = self.into_alternative(alt)?.next()?; // Call both into and next to make sure last is always valid
+                self = self.into_alternative(alt)?.next()?; // Call both into and next to make sure `qturn()` is always valid
                 partial.main = &main[0..len + 2];
                 partial.last = 1;
             }
         }
         Ok(self)
     }
+    /// Follow a path.
     fn follow_path<'a>(
         mut self,
         partial: &'_ mut PartialPath<'a>,

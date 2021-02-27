@@ -3,6 +3,8 @@ use fen4::{Board, Color, TurnColor};
 use std::num::ParseIntError;
 
 use thiserror::Error;
+
+/// Possible errors while extracting a Variant from pgn4 tags
 #[derive(Error, PartialEq, Debug, Clone)]
 pub enum VariantError {
     #[error("A bracketed value is repeated")]
@@ -24,6 +26,7 @@ pub enum VariantError {
 }
 
 impl PGN4 {
+    /// Searches for a tag and optionally returns a reference to it if found
     pub fn tag<'a>(&'a self, tag_name: &'_ str) -> Option<&'a str> {
         for (key, value) in &self.bracketed {
             if key == tag_name {
@@ -32,6 +35,7 @@ impl PGN4 {
         }
         None
     }
+    /// Extract / parse the variant from a pgn4
     pub fn variant(&self) -> Result<Variant, VariantError> {
         use VariantError::*;
         let variant = self.tag("Variant");
@@ -114,6 +118,7 @@ impl PGN4 {
         Ok(base)
     }
 
+    /// If all four players are rated, parse all of the ratings.
     pub fn ratings(&self) -> Option<[u16; 4]> {
         fn tou16(s: Option<&str>) -> Option<u16> {
             s.map(|s| s.parse::<u16>().ok()).flatten()
@@ -125,6 +130,7 @@ impl PGN4 {
         Some([red, blue, yellow, green])
     }
 
+    /// If all players have names, return a reference to them
     pub fn players(&self) -> Option<[&str; 4]> {
         let red = self.tag("Red")?;
         let blue = self.tag("Blue")?;
@@ -133,6 +139,7 @@ impl PGN4 {
         Some([red, blue, yellow, green])
     }
 
+    /// If tag "Result" is present, parse it.
     pub fn result(&self) -> GameResult {
         use GameResult::*;
         let result = self.tag("Result");
@@ -189,9 +196,15 @@ impl PGN4 {
             Error
         }
     }
+    /// Inserts q after path in self and returns the index of the alternative
+    /// where the move was placed (0 for continuing the line).
+    ///
+    /// Format for path is `[ply forward] : [alternative index, plyforward]*`
+    /// In order to follow it, move to the next move `path[0]` times, then if
+    /// there is more to path, go into alternative `path[1]-1` and continue with `path[2..]`
+    /// This is the format Chess.com uses to notate with
     pub fn append_move(&mut self, path: &[usize], q: QuarterTurn) -> Result<usize, ()> {
         if path.len() % 2 == 0 {
-            // Format for path is [ply forward] : [alternative index, plyforward] * so it must be odd
             eprintln!("Invalid path length");
             return Err(());
         }
@@ -279,6 +292,7 @@ impl PGN4 {
         }
         helper(&mut self.turns, path, q, 0)
     }
+    /// Switches the order of alternatives / main moves such that the given path ends up as the mainline
     pub fn promote_to_mainline(&mut self, path: &[usize]) -> Result<(), ()> {
         if path.len() % 2 == 0 {
             return Err(());
@@ -346,6 +360,7 @@ impl PGN4 {
         }
         helper(&mut self.turns, path)
     }
+    /// Deletes all further moves after path and path istself. Any alternatives to it remain.
     pub fn delete_from(&mut self, path: &[usize]) -> Result<(), ()> {
         if path.len() % 2 == 0 {
             return Err(());
@@ -415,6 +430,7 @@ impl PGN4 {
 }
 
 impl Variant {
+    /// The default variant for the team gamemode.
     pub fn team_default() -> Self {
         Self {
             red_teammate: Color::Turn(TurnColor::Yellow),
@@ -437,6 +453,7 @@ impl Variant {
             ffa_play_for_mate: false,
         }
     }
+    /// The default for the ffa and solo gamemodes
     pub fn ffa_default() -> Self {
         Self {
             red_teammate: Color::Dead(None),
@@ -459,6 +476,7 @@ impl Variant {
             ffa_play_for_mate: false,
         }
     }
+    /// Returns true if there are any non-standard pieces in play (or could promote to such a piece)
     pub fn fairy(&self) -> bool {
         let normal = ['P', 'B', 'N', 'R', 'Q', 'D', 'K'];
         for i in 0..14 {
@@ -477,6 +495,7 @@ impl Variant {
         }
         false
     }
+    /// Distance of the pans base rank from the edge of the board.
     pub fn pawn_base_rank(&self) -> usize {
         self.initial_board.extra_options.pawnbaserank
     }
