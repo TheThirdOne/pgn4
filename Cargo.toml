@@ -1,6 +1,6 @@
 [package]
 name = "pgn4"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Benjamin Landers <benjaminrlanders@gmail.com>"]
 edition = "2018"
 description = "A parser and writer for the pgn4 file format used by Chess.com for 4 player chess games"
@@ -9,4 +9,5 @@ repository="https://github.com/TheThirdOne/pgn4/"
 
 [dependencies]
 thiserror = "1.0"
-fen4 = ">= 0.4, < 0.7"
+#fen4 = { path = "../fen4_parser"}
+fen4 = ">= 0.4, < 0.8"
